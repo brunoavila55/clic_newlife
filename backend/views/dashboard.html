@@ -1,0 +1,376 @@
+<div id="dashboard-content" class="w-full">
+    <!-- Client header bar -->
+    <div class="py-6 flex items-center justify-between flex-wrap gap-4 slide-up">
+        <div class="flex items-center gap-4">
+            <!-- Avatar -->
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shadow-lg flex-shrink-0"
+                style="background: linear-gradient(135deg, #4f6ef7 0%, #8b5cf6 100%)">
+                {{ slice .Client.Name 0 1 }}
+            </div>
+            <div>
+                <p class="text-white/40 text-xs font-bold uppercase tracking-widest mb-0.5">Cliente</p>
+                <h2 class="text-white font-black text-2xl leading-tight">{{.Client.Name}}</h2>
+                <div class="flex items-center gap-3 mt-1 flex-wrap">
+                    <span class="text-white/40 text-xs font-mono">{{.Client.CPF}}</span>
+                    <span class="text-white/20">·</span>
+                    <span class="text-white/40 text-xs font-mono">ID #{{.Client.InternalID}}</span>
+                    {{if .Client.Phone}}
+                    <span class="text-white/20">·</span>
+                    <span class="text-white/40 text-xs flex items-center gap-1"><i data-lucide="phone" class="w-2.5 h-2.5"></i>{{.Client.Phone}}</span>
+                    {{end}}
+                    {{if .HasBlockedConexao}}
+                    <span class="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/15 border border-red-500/30 rounded-full text-red-300 text-[10px] font-bold">
+                        <i data-lucide="lock" class="w-2.5 h-2.5"></i> Com bloqueio
+                    </span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        {{if .Error}}
+        <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> {{.Error}}
+        </div>
+        {{end}}
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="glass-card p-5 relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-300 slide-up" style="animation-delay: 50ms;">
+            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 blur-3xl"></div>
+            <div class="relative z-10">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><i data-lucide="wifi" class="w-[18px] h-[18px] text-cyan-400"></i></div>
+                </div>
+                <p class="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Conexões</p>
+                <p class="text-2xl font-black text-white leading-none">{{len .Conexoes}}</p>
+                <p class="text-white/40 text-xs mt-1.5">{{if .HasBlockedConexao}}⚠ Com bloqueio{{else}}Todas ativas{{end}}</p>
+            </div>
+        </div>
+
+        <div class="glass-card p-5 relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-300 slide-up" style="animation-delay: 100ms;">
+            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-violet-500/20 to-purple-500/20 blur-3xl"></div>
+            <div class="relative z-10">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><i data-lucide="file-text" class="w-[18px] h-[18px] text-violet-400"></i></div>
+                </div>
+                <p class="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Contratos</p>
+                <p class="text-2xl font-black text-white leading-none">{{len .Contratos}}</p>
+                <p class="text-white/40 text-xs mt-1.5">Em aberto</p>
+            </div>
+        </div>
+
+        <div class="glass-card p-5 relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-300 slide-up" style="animation-delay: 150ms;">
+            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-rose-500/20 to-pink-500/20 blur-3xl"></div>
+            <div class="relative z-10">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><i data-lucide="receipt" class="w-[18px] h-[18px] text-rose-400"></i></div>
+                </div>
+                <p class="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Faturas</p>
+                <p class="text-2xl font-black text-white leading-none">{{len .Faturas}}</p>
+                <p class="text-white/40 text-xs mt-1.5">No sistema</p>
+            </div>
+        </div>
+
+        <div class="glass-card p-5 relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-300 slide-up" style="animation-delay: 200ms;">
+            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-amber-500/20 to-orange-500/20 blur-3xl"></div>
+            <div class="relative z-10">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="p-2.5 rounded-xl bg-white/5 border border-white/10"><i data-lucide="message-square" class="w-[18px] h-[18px] text-amber-400"></i></div>
+                </div>
+                <p class="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Atendimentos</p>
+                <p class="text-2xl font-black text-white leading-none">{{len .Atendimentos}}</p>
+                <p class="text-white/40 text-xs mt-1.5">{{if gt .OpenAtendimentos 0}}{{.OpenAtendimentos}} em aberto{{else}}Nenhum aberto{{end}}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main 3-col grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- Col 1: Info Pessoal + Contratos -->
+        <div class="lg:col-span-3 space-y-4">
+            <!-- Info Pessoal -->
+            <div class="glass-card p-5 slide-up" style="animation-delay: 50ms;">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-xl bg-gradient-to-br from-blue-600/30 to-blue-500/20 shadow-lg">
+                            <i data-lucide="user" class="w-[15px] h-[15px] text-blue-300"></i>
+                        </div>
+                        <h3 class="font-bold text-base text-white/90 tracking-tight">Dados Pessoais</h3>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    {{if .Client.Address}}
+                    <div>
+                        <p class="text-white/30 text-[10px] font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            <i data-lucide="map-pin" class="w-[9px] h-[9px]"></i> Endereço
+                        </p>
+                        <p class="text-white/70 text-sm leading-relaxed">{{.Client.Address}}</p>
+                    </div>
+                    {{end}}
+                    {{if .Client.Phone}}
+                    <div>
+                        <p class="text-white/30 text-[10px] font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            <i data-lucide="phone" class="w-[9px] h-[9px]"></i> Telefone
+                        </p>
+                        <p class="text-white/70 text-sm font-mono">{{.Client.Phone}}</p>
+                    </div>
+                    {{end}}
+                    <div>
+                        <p class="text-white/30 text-[10px] font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            <i data-lucide="hash" class="w-[9px] h-[9px]"></i> Código Interno
+                        </p>
+                        <p class="text-white/70 text-sm font-mono">#{{.Client.InternalID}}</p>
+                    </div>
+                    {{if .Financeiro}}
+                    <div class="pt-3 border-t border-white/[0.06]">
+                        <p class="text-white/30 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                            <i data-lucide="bar-chart-3" class="w-[9px] h-[9px]"></i> Score de Crédito
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-1000"
+                                     style="width: {{.ScorePercentage}}%; background: linear-gradient(90deg, #10b981, #06b6d4)">
+                                </div>
+                            </div>
+                            <span class="text-white font-black text-sm">{{.Financeiro.CreditScore}}</span>
+                        </div>
+                        {{if .Financeiro.IsDefaulter}}
+                        <p class="text-red-400 text-[10px] font-semibold mt-2 flex items-center gap-1">
+                            <i data-lucide="alert-triangle" class="w-[9px] h-[9px]"></i> Inadimplente
+                        </p>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Contratos -->
+            <div class="glass-card p-5 slide-up" style="animation-delay: 100ms;">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-xl bg-gradient-to-br from-violet-600/30 to-violet-500/20 shadow-lg">
+                            <i data-lucide="file-text" class="w-[15px] h-[15px] text-violet-300"></i>
+                        </div>
+                        <h3 class="font-bold text-base text-white/90 tracking-tight">Contratos</h3>
+                    </div>
+                    <span class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white/50">{{len .Contratos}}</span>
+                </div>
+                
+                {{if not .Contratos}}
+                <div class="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-white/10">
+                    <div class="text-white/20"><i data-lucide="file-text" class="w-[32px] h-[32px]"></i></div>
+                    <p class="text-white/30 text-sm font-medium">Nenhum contrato ativo</p>
+                </div>
+                {{else}}
+                <div class="space-y-3">
+                    {{range .Contratos}}
+                    <div class="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:bg-white/[0.05] transition-all group">
+                        <div class="p-2.5 rounded-xl bg-violet-500/15 flex-shrink-0">
+                            <i data-lucide="building-2" class="w-4 h-4 text-violet-400"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-white/90 text-sm truncate">{{.PlanName}}</p>
+                            <p class="text-white/30 text-[10px] font-mono mt-0.5">ID: {{.ID}} · desde {{.StartDate}}</p>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border {{if eq .Status "ACTIVE"}}bg-emerald-500/20 text-emerald-300 border-emerald-500/30{{else if eq .Status "INACTIVE"}}bg-red-500/20 text-red-300 border-red-500/30{{else}}bg-amber-500/20 text-amber-300 border-amber-500/30{{end}}">
+                            {{if eq .Status "ACTIVE"}}Ativo{{else if eq .Status "INACTIVE"}}Inativo{{else}}{{.Status}}{{end}}
+                        </span>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Col 2: Conexões (prioridade máxima) -->
+        <div class="lg:col-span-5">
+            <div class="glass-card p-5 h-full slide-up" style="animation-delay: 100ms;">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-xl bg-gradient-to-br from-cyan-600/30 to-blue-500/20 shadow-lg">
+                            <i data-lucide="globe" class="w-[15px] h-[15px] text-cyan-300"></i>
+                        </div>
+                        <h3 class="font-bold text-base text-white/90 tracking-tight">Monitor de Conexões</h3>
+                    </div>
+                    <span class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white/50">{{len .Conexoes}}</span>
+                </div>
+                
+                {{if not .Conexoes}}
+                <div class="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-white/10">
+                    <div class="text-white/20"><i data-lucide="wifi-off" class="w-[32px] h-[32px]"></i></div>
+                    <p class="text-white/30 text-sm font-medium">Nenhuma conexão localizada</p>
+                </div>
+                {{else}}
+                <div class="space-y-3">
+                    {{range .Conexoes}}
+                    <div class="relative flex items-start gap-4 p-4 rounded-2xl border transition-all duration-200 {{if eq .Bloqueada "Sim"}}bg-red-500/5 border-red-500/20 hover:border-red-500/40{{else}}bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40{{end}}">
+                        <!-- Status icon -->
+                        <div class="mt-0.5 p-2.5 rounded-xl flex-shrink-0 {{if eq .Bloqueada "Sim"}}bg-red-500/15{{else}}bg-emerald-500/15{{end}}">
+                            {{if eq .Bloqueada "Sim"}}
+                            <i data-lucide="lock" class="w-4 h-4 text-red-400"></i>
+                            {{else}}
+                            <i data-lucide="signal" class="w-4 h-4 text-emerald-400"></i>
+                            {{end}}
+                        </div>
+
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="font-bold text-white text-sm">{{.Username}}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 {{if eq .Bloqueada "Sim"}}bg-red-500/20 text-red-300 border border-red-500/30{{else}}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{{end}}">
+                                    <span class="relative flex h-2.5 w-2.5">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 {{if eq .Bloqueada "Sim"}}bg-red-400{{else}}bg-emerald-400{{end}}"></span>
+                                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 {{if eq .Bloqueada "Sim"}}bg-red-400{{else}}bg-emerald-400{{end}}"></span>
+                                    </span>
+                                    {{if eq .Bloqueada "Sim"}}Bloqueada{{else}}Online{{end}}
+                                </span>
+                            </div>
+
+                            {{if and (eq .Bloqueada "Sim") .MotivoBloqueio}}
+                            <div class="flex items-center gap-1.5 mt-1.5 mb-1">
+                                <i data-lucide="alert-triangle" class="w-[11px] h-[11px] text-red-400 flex-shrink-0"></i>
+                                <span class="text-red-300 text-xs font-semibold">{{.MotivoBloqueio}}</span>
+                            </div>
+                            {{end}}
+
+                            {{if .Endereco}}
+                            <p class="text-white/35 text-xs flex items-center gap-1 mt-1 truncate">
+                                <i data-lucide="map-pin" class="w-2.5 h-2.5 flex-shrink-0"></i>
+                                {{.Endereco}}
+                            </p>
+                            {{end}}
+                            <p class="text-white/25 text-[10px] font-mono mt-1.5">MAC: {{.MacAddress}} · #{{.CodConexao}}</p>
+
+                            <!-- Session data enrichment -->
+                            {{if or .Down .Up .Tempo}}
+                            <div class="mt-3 pt-3 border-t border-white/[0.06] grid grid-cols-3 gap-2">
+                                {{if .Down}}
+                                <div class="text-center">
+                                    <p class="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">↓ Down</p>
+                                    <p class="text-cyan-300 text-xs font-bold">{{.Down}}</p>
+                                </div>
+                                {{end}}
+                                {{if .Up}}
+                                <div class="text-center">
+                                    <p class="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">↑ Up</p>
+                                    <p class="text-emerald-300 text-xs font-bold">{{.Up}}</p>
+                                </div>
+                                {{end}}
+                                {{if .Tempo}}
+                                <div class="text-center">
+                                    <p class="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">⏱ Uptime</p>
+                                    <p class="text-amber-300 text-xs font-bold">{{.Tempo}}</p>
+                                </div>
+                                {{end}}
+                            </div>
+                            {{end}}
+                            
+                            {{if .NAS}}
+                            <p class="text-white/20 text-[10px] font-mono mt-1.5">NAS: {{.NAS}}</p>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Col 3: Faturas + Atendimentos -->
+        <div class="lg:col-span-4 space-y-4">
+            <!-- Faturas -->
+            <div class="glass-card p-5 slide-up" style="animation-delay: 150ms;">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-xl bg-gradient-to-br from-rose-600/30 to-pink-500/20 shadow-lg">
+                            <i data-lucide="credit-card" class="w-[15px] h-[15px] text-rose-300"></i>
+                        </div>
+                        <h3 class="font-bold text-base text-white/90 tracking-tight">Faturas</h3>
+                    </div>
+                    <span class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white/50">{{len .Faturas}}</span>
+                </div>
+                
+                {{if not .Faturas}}
+                <div class="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-white/10">
+                    <div class="text-white/20"><i data-lucide="receipt" class="w-[32px] h-[32px]"></i></div>
+                    <p class="text-white/30 text-sm font-medium">Nenhuma fatura encontrada</p>
+                </div>
+                {{else}}
+                <div class="space-y-3">
+                    {{range .Faturas}}
+                    <div class="flex items-center justify-between gap-4 p-4 rounded-2xl border transition-all {{if eq .Status "PAID"}}bg-white/[0.02] border-white/[0.06] hover:border-white/10{{else}}bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40{{end}}">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 rounded-xl {{if eq .Status "PAID"}}bg-white/5{{else}}bg-amber-500/15{{end}}">
+                                <i data-lucide="credit-card" class="w-[15px] h-[15px] {{if eq .Status "PAID"}}text-white/30{{else}}text-amber-400{{end}}"></i>
+                            </div>
+                            <div>
+                                <p class="text-white/80 font-semibold text-sm">{{.ID}}</p>
+                                {{if .Barcode}}
+                                <p class="text-white/25 text-[10px] font-mono truncate max-w-[160px]">{{.Barcode}}</p>
+                                {{end}}
+                                <p class="text-white/30 text-[10px] mt-0.5">{{.DueDate}}</p>
+                            </div>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <p class="font-black text-white text-base">R$ {{.Amount}}</p>
+                            <span class="text-[9px] font-black uppercase tracking-wider {{if eq .Status "PAID"}}text-emerald-400{{else}}text-amber-400{{end}}">
+                                {{if eq .Status "PAID"}}✓ Pago{{else}}⚠ Pendente{{end}}
+                            </span>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Atendimentos -->
+            <div class="glass-card p-5 slide-up" style="animation-delay: 200ms;">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-xl bg-gradient-to-br from-amber-600/30 to-orange-500/20 shadow-lg">
+                            <i data-lucide="message-square" class="w-[15px] h-[15px] text-amber-300"></i>
+                        </div>
+                        <h3 class="font-bold text-base text-white/90 tracking-tight">Atendimentos (30 dias)</h3>
+                    </div>
+                    <span class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white/50">{{len .Atendimentos}}</span>
+                </div>
+                
+                {{if not .Atendimentos}}
+                <div class="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-white/10">
+                    <div class="text-white/20"><i data-lucide="message-square" class="w-[32px] h-[32px]"></i></div>
+                    <p class="text-white/30 text-sm font-medium">Nenhum atendimento</p>
+                </div>
+                {{else}}
+                <div class="space-y-3">
+                    {{range .Atendimentos}}
+                    <div class="flex items-start gap-3 p-4 rounded-2xl border transition-all {{if eq .Status "OPEN"}}bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40{{else}}bg-white/[0.02] border-white/[0.06] hover:border-white/10{{end}}">
+                        <div class="p-2 rounded-xl flex-shrink-0 mt-0.5 {{if eq .Status "OPEN"}}bg-blue-500/15{{else}}bg-white/5{{end}}">
+                            <i data-lucide="message-square" class="w-3.5 h-3.5 {{if eq .Status "OPEN"}}text-blue-400{{else}}text-white/30{{end}}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="text-white/85 text-sm font-medium leading-tight line-clamp-2">{{.Subject}}</p>
+                                <span class="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border {{if eq .Status "OPEN"}}bg-blue-500/20 text-blue-300 border-blue-500/30{{else}}bg-white/5 text-white/30 border-white/10{{end}}">
+                                    {{if eq .Status "OPEN"}}Aberto{{else}}Fechado{{end}}
+                                </span>
+                            </div>
+                            <p class="text-white/25 text-[10px] font-mono mt-1.5">Prot: {{.Protocol}} · {{.CreatedAt}}</p>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer bar -->
+    <div class="mt-8 pt-6 border-t border-white/[0.04] flex items-center justify-between flex-wrap gap-3">
+        <p class="text-white/20 text-xs">Dados consultados em tempo real via MK Solutions API</p>
+        <button hx-get="/" hx-target="body" hx-push-url="true"
+            class="text-white/25 hover:text-white/60 text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
+            <i data-lucide="search" class="w-[11px] h-[11px]"></i> Nova consulta
+        </button>
+    </div>
+</div>

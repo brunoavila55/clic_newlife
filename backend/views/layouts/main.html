@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full antialiased dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClicData 360 — Visão Completa do Cliente</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (CDN for simple HTMX app) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#08090e',
+                        foreground: '#f0f2f8',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background-color: var(--background, #08090e);
+            color: var(--foreground, #f0f2f8);
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 1.5rem;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .slide-up {
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        
+        @keyframes slideUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline-block;
+        }
+        .htmx-request.htmx-indicator {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col">
+    <!-- Background ambient -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-[-1]">
+        <div class="absolute top-[-20%] left-[10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px]"></div>
+        <div class="absolute top-[40%] right-[-5%] w-[400px] h-[400px] bg-violet-600/8 rounded-full blur-[100px]"></div>
+        <div class="absolute bottom-[-10%] left-[30%] w-[500px] h-[500px] bg-cyan-600/6 rounded-full blur-[120px]"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="relative z-40 border-b border-white/[0.06]" style="background: rgba(8,9,14,0.85); backdrop-filter: blur(24px)">
+        <div class="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30"
+                    style="background: linear-gradient(135deg, #4f6ef7, #06b6d4)">
+                    <i data-lucide="zap" class="text-white w-[18px] h-[18px]"></i>
+                </div>
+                <div>
+                    <span class="font-black text-lg tracking-tight gradient-text">ClicData</span>
+                    <span class="font-black text-lg tracking-tight text-white/90"> 360</span>
+                </div>
+            </div>
+
+            <!-- Compact Search Form (Only visible when searching inside dashboard via HTMX out of band, or here globally) -->
+            <form hx-post="/search" hx-target="#dashboard-content" hx-indicator="#global-spinner" class="hidden md:flex items-center relative w-80 group">
+                <i data-lucide="search" class="absolute left-4 text-white/30 group-focus-within:text-blue-400 transition-colors w-[15px] h-[15px]"></i>
+                <input
+                    type="text"
+                    name="cpf"
+                    placeholder="Novo CPF/CNPJ..."
+                    required
+                    class="w-full pl-10 pr-24 py-2.5 text-sm rounded-xl border border-white/10 bg-white/5 text-white placeholder-white/25 focus:outline-none focus:border-blue-500/60 focus:bg-white/[0.07] transition-all"
+                />
+                <button type="submit"
+                    class="absolute right-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 flex items-center gap-1"
+                    style="background: linear-gradient(135deg, #4f6ef7, #06b6d4)">
+                    <i data-lucide="loader-2" class="htmx-indicator animate-spin w-[13px] h-[13px]" id="global-spinner"></i>
+                    <span class="group-[.htmx-request]:hidden">Buscar</span>
+                </button>
+            </form>
+
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                </span>
+                <span class="text-white/40 text-xs font-semibold uppercase tracking-widest hidden sm:block">Online</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 max-w-[1600px] mx-auto px-6 pb-16 w-full flex-1">
+        {{embed}}
+    </main>
+
+    <script>
+        // Initialize lucide icons on load and after htmx swap
+        lucide.createIcons();
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

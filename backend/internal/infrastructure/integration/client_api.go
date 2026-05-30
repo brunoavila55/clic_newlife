@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/clic_newlife/backend/internal/config"
@@ -15,6 +16,11 @@ import (
 
 type MKIntegrationService struct {
 	cfg *config.Config
+
+	// Token cache — evita uma autenticação por consulta
+	tokenMu     sync.Mutex
+	cachedToken string
+	tokenExpiry time.Time
 }
 
 func NewMKIntegrationService(cfg *config.Config) *MKIntegrationService {
@@ -62,7 +68,17 @@ type MKConexoesResponse struct {
 	Status string `json:"status"`
 }
 
+// Authenticate obtém o token de sessão MK, reutilizando o cache enquanto não expirar.
+// Isso evita 1 requisição extra a cada pesquisa de cliente.
 func (s *MKIntegrationService) Authenticate(ctx context.Context) (string, error) {
+	s.tokenMu.Lock()
+	if s.cachedToken != "" && time.Now().Before(s.tokenExpiry) {
+		token := s.cachedToken
+		s.tokenMu.Unlock()
+		return token, nil
+	}
+	s.tokenMu.Unlock()
+
 	url := fmt.Sprintf("%s/mk/WSAutenticacao.rule?sys=MK0&token=%s&cd_servico=9999", s.cfg.MKApiURL, s.cfg.MKAuthToken)
 	if s.cfg.MKAuthPassword != "" {
 		url += fmt.Sprintf("&password=%s", s.cfg.MKAuthPassword)
@@ -93,6 +109,20 @@ func (s *MKIntegrationService) Authenticate(ctx context.Context) (string, error)
 	if authRes.Token == "" {
 		return "", fmt.Errorf("authentication failed, no token returned: %s", string(body))
 	}
+
+	// Armazena token em cache com margem de segurança de 2 minutos
+	s.tokenMu.Lock()
+	s.cachedToken = authRes.Token
+	s.tokenExpiry = time.Now().Add(8 * time.Minute) // fallback conservador
+	if authRes.Expire != "" {
+		for _, layout := range []string{"2006-01-02 15:04:05", "2006-01-02T15:04:05", "01/02/2006 15:04:05"} {
+			if t, parseErr := time.Parse(layout, authRes.Expire); parseErr == nil {
+				s.tokenExpiry = t.Add(-2 * time.Minute)
+				break
+			}
+		}
+	}
+	s.tokenMu.Unlock()
 
 	return authRes.Token, nil
 }
@@ -125,17 +155,6 @@ func (s *MKIntegrationService) FetchClientByCPF(ctx context.Context, sessionToke
 		return nil, fmt.Errorf("cliente não encontrado ou resposta inválida")
 	}
 
-	type MKConexaoResponseV2 struct {
-		Conexoes []struct {
-			CodConexao     int     `json:"codconexao"`
-			Username       string  `json:"username"`
-			MacAddress     string  `json:"mac_address"`
-			Bloqueada      string  `json:"bloqueada"`
-			MotivoBloqueio *string `json:"motivo_bloqueio"`
-			Endereco       string  `json:"endereco"`
-		} `json:"Conexoes"`
-	}
-
 	return &domain.Client{
 		CPF:        cpf,
 		Name:       mkClient.Nome,
@@ -145,6 +164,20 @@ func (s *MKIntegrationService) FetchClientByCPF(ctx context.Context, sessionToke
 	}, nil
 }
 
+// MKConexaoSession holds radius session data from WSMKConsultaConexaoAutenticada
+type MKConexaoSession struct {
+	Down        string
+	Up          string
+	Tempo       string
+	NAS         string
+	IP          string
+	DtHrParada  string
+	DtHrRetorno string
+}
+
+// FetchConexoes busca as conexões do cliente e enriquece cada uma com dados de sessão
+// Radius em paralelo, reduzindo o tempo de N requisições sequenciais para 1x o tempo de
+// uma única requisição (limitada pela mais lenta).
 func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken string, internalID string) ([]domain.Conexao, error) {
 	url := fmt.Sprintf("%s/mk/WSMKConexoesPorCliente.rule?sys=MK0&token=%s&cd_cliente=%s", s.cfg.MKApiURL, sessionToken, internalID)
 
@@ -165,15 +198,34 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 		return nil, err
 	}
 
-	// V1 returns a NESTED object: {"CodigoPessoa":..., "Conexoes":[...]}
 	var mkRes MKConexoesResponse
 	if err := json.Unmarshal(body, &mkRes); err != nil {
-		fmt.Println("MK Conexoes Error:", string(body))
 		return nil, fmt.Errorf("failed to parse conexoes: %w", err)
 	}
 
+	if len(mkRes.Conexoes) == 0 {
+		return nil, nil
+	}
+
+	// Busca sessões Radius em paralelo (antes era sequencial — 1 req por vez)
+	sessions := make([]*MKConexaoSession, len(mkRes.Conexoes))
+	var sesWg sync.WaitGroup
+	var sesMu sync.Mutex
+
+	for i, c := range mkRes.Conexoes {
+		sesWg.Add(1)
+		go func(idx int, codConexao int) {
+			defer sesWg.Done()
+			session := s.fetchConexaoSession(ctx, sessionToken, codConexao)
+			sesMu.Lock()
+			sessions[idx] = session
+			sesMu.Unlock()
+		}(i, c.CodConexao)
+	}
+	sesWg.Wait()
+
 	var conexoes []domain.Conexao
-	for _, c := range mkRes.Conexoes {
+	for i, c := range mkRes.Conexoes {
 		motivo := ""
 		if c.MotivoBloqueio != nil {
 			motivo = *c.MotivoBloqueio
@@ -188,34 +240,20 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 			Endereco:       c.Endereco,
 		}
 
-		// Enriquecer com dados de sessão (WSMKConsultaConexaoAutenticada)
-		session := s.fetchConexaoSession(ctx, sessionToken, c.CodConexao)
-		fmt.Printf("DEBUG Session for codconexao=%d: %+v\n", c.CodConexao, session)
-		if session != nil {
-			con.Down = session.Down
-			con.Up = session.Up
-			con.Tempo = session.Tempo
-			con.NAS = session.NAS
-			con.IP = session.IP
-			con.DtHrParada = session.DtHrParada
-			con.DtHrRetorno = session.DtHrRetorno
+		if sessions[i] != nil {
+			con.Down = sessions[i].Down
+			con.Up = sessions[i].Up
+			con.Tempo = sessions[i].Tempo
+			con.NAS = sessions[i].NAS
+			con.IP = sessions[i].IP
+			con.DtHrParada = sessions[i].DtHrParada
+			con.DtHrRetorno = sessions[i].DtHrRetorno
 		}
 
 		conexoes = append(conexoes, con)
 	}
 
 	return conexoes, nil
-}
-
-// MKConexaoSession holds radius session data from WSMKConsultaConexaoAutenticada
-type MKConexaoSession struct {
-	Down        string
-	Up          string
-	Tempo       string
-	NAS         string
-	IP          string
-	DtHrParada  string
-	DtHrRetorno string
 }
 
 func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionToken string, codConexao int) *MKConexaoSession {
@@ -299,12 +337,15 @@ type MKAtendimento struct {
 	NomeAtendente     string `json:"nome_atendente"`
 }
 
+// FetchAtendimentos busca atendimentos filtrando por cliente no servidor (cd_cliente),
+// e busca os agendamentos de O.S. de todos os atendimentos em paralelo.
 func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionToken string, internalID string) ([]domain.Atendimento, error) {
-	// Apenas últimos 30 dias para não sobrecarregar a API
+	// Apenas últimos 30 dias + filtro por cliente no servidor para reduzir payload
 	dataInicio := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
 	dataTermino := time.Now().Format("2006-01-02")
 
-	url := fmt.Sprintf("%s/mk/WSMKAtendimentos.rule?sys=MK0&token=%s&data_inicio=%s&data_termino=%s", s.cfg.MKApiURL, sessionToken, dataInicio, dataTermino)
+	url := fmt.Sprintf("%s/mk/WSMKAtendimentos.rule?sys=MK0&token=%s&cd_cliente=%s&data_inicio=%s&data_termino=%s",
+		s.cfg.MKApiURL, sessionToken, internalID, dataInicio, dataTermino)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -328,55 +369,78 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 		return nil, fmt.Errorf("failed to parse atendimentos: %w", err)
 	}
 
-	var atendimentos []domain.Atendimento
+	// Filtra pelo cliente (fallback caso a API ignore cd_cliente)
+	type pendingAtd struct {
+		base         domain.Atendimento
+		dataAbertura string
+	}
+
+	var pending []pendingAtd
 	for _, a := range mkRes {
-		if fmt.Sprintf("%d", a.CodigoCliente) == internalID {
-			t, _ := time.Parse("2006-01-02 15:04:05", a.DataAbertura+" "+a.HrAbertura)
-			
-			status := "CLOSED"
-			if a.CodigoStatus != "F" {
-				status = "OPEN"
-			}
+		if fmt.Sprintf("%d", a.CodigoCliente) != internalID {
+			continue
+		}
+		t, _ := time.Parse("2006-01-02 15:04:05", a.DataAbertura+" "+a.HrAbertura)
 
-			// Fetch OS Agendamento for each ticket
-			osInfo := s.fetchOSAgendamento(ctx, sessionToken, internalID, a.DataAbertura)
-			osStatus := "Sem O.S."
-			osTecnico := ""
-			osData := ""
-			if osInfo != nil {
-				osStatus = osInfo.OSStatus
-				osTecnico = osInfo.OSTecnico
-				osData = osInfo.OSData
-			}
+		status := "CLOSED"
+		if a.CodigoStatus != "F" {
+			status = "OPEN"
+		}
 
-			subject := a.DescricaoStatus
-			if a.NomeAtendente != "" {
-				subject += " (" + a.NomeAtendente + ")"
-			}
+		subject := a.DescricaoStatus
+		if a.NomeAtendente != "" {
+			subject += " (" + a.NomeAtendente + ")"
+		}
 
-			atendimentos = append(atendimentos, domain.Atendimento{
+		pending = append(pending, pendingAtd{
+			base: domain.Atendimento{
 				ID:        fmt.Sprintf("%d", a.CodigoAtendimento),
 				Protocol:  fmt.Sprintf("%d", a.CodigoAtendimento),
 				Status:    status,
 				Subject:   subject,
 				CreatedAt: t,
-				OSStatus:  osStatus,
-				OSTecnico: osTecnico,
-				OSData:    osData,
-			})
-		}
+			},
+			dataAbertura: a.DataAbertura,
+		})
 	}
 
-	// Order descending
-	for i := 0; i < len(atendimentos); i++ {
-		for j := i + 1; j < len(atendimentos); j++ {
-			if atendimentos[j].CreatedAt.After(atendimentos[i].CreatedAt) {
-				atendimentos[i], atendimentos[j] = atendimentos[j], atendimentos[i]
+	if len(pending) == 0 {
+		return nil, nil
+	}
+
+	// Busca agendamentos de O.S. em paralelo (antes era sequencial — 1 req por atendimento)
+	results := make([]domain.Atendimento, len(pending))
+	var osWg sync.WaitGroup
+	var osMu sync.Mutex
+
+	for i, p := range pending {
+		osWg.Add(1)
+		go func(idx int, atd domain.Atendimento, dataAbertura string) {
+			defer osWg.Done()
+			osInfo := s.fetchOSAgendamento(ctx, sessionToken, internalID, dataAbertura)
+			atd.OSStatus = "Sem O.S."
+			if osInfo != nil {
+				atd.OSStatus = osInfo.OSStatus
+				atd.OSTecnico = osInfo.OSTecnico
+				atd.OSData = osInfo.OSData
+			}
+			osMu.Lock()
+			results[idx] = atd
+			osMu.Unlock()
+		}(i, p.base, p.dataAbertura)
+	}
+	osWg.Wait()
+
+	// Ordena por data decrescente
+	for i := 0; i < len(results); i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[j].CreatedAt.After(results[i].CreatedAt) {
+				results[i], results[j] = results[j], results[i]
 			}
 		}
 	}
 
-	return atendimentos, nil
+	return results, nil
 }
 
 type MKOSAgendamento struct {
@@ -416,7 +480,7 @@ func (s *MKIntegrationService) fetchOSAgendamento(ctx context.Context, sessionTo
 		formattedDate = tData.Format("02/01/2006")
 	}
 
-	url := fmt.Sprintf("%s/mk/WSMKConsultaOrdemAgendamento.rule?sys=MK0&token=%s&cliente=%s&DataAbertura=%s", 
+	url := fmt.Sprintf("%s/mk/WSMKConsultaOrdemAgendamento.rule?sys=MK0&token=%s&cliente=%s&DataAbertura=%s",
 		s.cfg.MKApiURL, sessionToken, internalID, formattedDate)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -474,9 +538,9 @@ func (s *MKIntegrationService) FetchFaturas(ctx context.Context, sessionToken st
 	httpClient := &http.Client{Timeout: 15 * time.Second}
 	var faturas []domain.Fatura
 
-	// Fetch ONLY OVERDUE invoices (from 01/01/2020 up to Yesterday)
+	// Busca apenas faturas VENCIDAS (de 01/01/2020 até ontem)
 	yesterdayStr := time.Now().AddDate(0, 0, -1).Format("02/01/2006")
-	urlOverdue := fmt.Sprintf("%s/mk/WSMKFaturasAbertas.rule?sys=MK0&token=%s&dt_venc_inicio=%s&dt_venc_fim=%s&cd_pessoa=%s", 
+	urlOverdue := fmt.Sprintf("%s/mk/WSMKFaturasAbertas.rule?sys=MK0&token=%s&dt_venc_inicio=%s&dt_venc_fim=%s&cd_pessoa=%s",
 		s.cfg.MKApiURL, sessionToken, "01/01/2020", yesterdayStr, internalID)
 
 	reqOverdue, err := http.NewRequestWithContext(ctx, http.MethodGet, urlOverdue, nil)
@@ -504,16 +568,14 @@ func (s *MKIntegrationService) FetchFaturas(ctx context.Context, sessionToken st
 	return faturas, nil
 }
 
+// FetchFinanceiro — integração pendente com MK Solutions.
 func (s *MKIntegrationService) FetchFinanceiro(ctx context.Context, sessionToken string, internalID string) (*domain.Financeiro, error) {
-	time.Sleep(700 * time.Millisecond)
-	return &domain.Financeiro{CreditScore: 850, TotalDebt: 0, IsDefaulter: false}, nil
+	return &domain.Financeiro{CreditScore: 0, TotalDebt: 0, IsDefaulter: false}, nil
 }
 
+// FetchContratos — integração pendente com MK Solutions.
 func (s *MKIntegrationService) FetchContratos(ctx context.Context, sessionToken string, internalID string) ([]domain.Contrato, error) {
-	time.Sleep(400 * time.Millisecond)
-	return []domain.Contrato{
-		{ID: "C1", PlanName: "Plano Ouro Fibra", Status: "ACTIVE", StartDate: time.Now().AddDate(-1, 0, 0)},
-	}, nil
+	return []domain.Contrato{}, nil
 }
 
 func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionToken string, internalID string) ([]domain.Equipamento, error) {
@@ -537,7 +599,6 @@ func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionTok
 		Status  string        `json:"status"`
 	}
 
-	// Call the new active API WSMKConsultaProdutoEstoque.rule
 	url := fmt.Sprintf("%s/mk/WSMKConsultaProdutoEstoque.rule?sys=MK0&Token=%s&cd_setor=%s", s.cfg.MKApiURL, sessionToken, internalID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -559,11 +620,10 @@ func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionTok
 
 	var mkRes MKStockResponse
 	if err := json.Unmarshal(body, &mkRes); err != nil {
-		fmt.Printf("DEBUG: Error unmarshaling inventory response: %v. Body: %s\n", err, string(body))
 		return nil, err
 	}
 
-	// Retrieve items from either list (dynamic key name support)
+	// Suporte a chave dinâmica (Códigos: ou Código:)
 	items := mkRes.Codigos
 	if len(items) == 0 {
 		items = mkRes.Codigo
@@ -571,13 +631,12 @@ func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionTok
 
 	var equip []domain.Equipamento
 	for _, item := range items {
-		// Filter by description containing "roteador" or "ont" (case-insensitive)
+		// Filtra apenas roteadores e ONTs
 		descLower := strings.ToLower(item.Descricao)
 		if !strings.Contains(descLower, "roteador") && !strings.Contains(descLower, "ont") {
 			continue
 		}
 
-		// Map serial label
 		serialStr := "Sem Serial"
 		if item.ControleSerial == "S" {
 			serialStr = "Com Serial"

@@ -21,19 +21,19 @@ func NewFetchClientDataUseCase(mkService *integration.MKIntegrationService) *Fet
 }
 
 func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*domain.ClientAggregatedData, error) {
-	// 1. Get session token first
+	// 1. Obtém token de sessão (reutiliza do cache se disponível)
 	sessionToken, err := uc.mkService.Authenticate(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Fetch main client data from MK API
+	// 2. Busca dados cadastrais do cliente (necessário para obter o InternalID)
 	client, err := uc.mkService.FetchClientByCPF(ctx, sessionToken, cpf)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Fetch dependencies concurrently
+	// 3. Busca todos os dados dependentes em paralelo (6 goroutines simultâneas)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -41,8 +41,7 @@ func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*dom
 		Client: *client,
 	}
 
-	// We are now fetching 5 parallel things
-	wg.Add(5)
+	wg.Add(6)
 
 	go func() {
 		defer wg.Done()
@@ -89,18 +88,29 @@ func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*dom
 		mu.Unlock()
 	}()
 
-	// wait with timeout
-	c := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		equipamentos, err := uc.mkService.FetchEquipamentos(ctx, sessionToken, client.InternalID)
+		if err != nil {
+			fmt.Println("Error FetchEquipamentos:", err)
+		}
+		mu.Lock()
+		aggregated.Equipamentos = equipamentos
+		mu.Unlock()
+	}()
+
+	// Aguarda todas as goroutines com timeout global de 12 segundos
+	done := make(chan struct{})
 	go func() {
 		wg.Wait()
-		close(c)
+		close(done)
 	}()
 
 	select {
-	case <-c:
-		// all done
-	case <-time.After(8 * time.Second):
-		// timeout reached
+	case <-done:
+		// tudo concluído
+	case <-time.After(12 * time.Second):
+		fmt.Println("Warning: timeout atingido aguardando APIs MK Solutions")
 	}
 
 	return aggregated, nil

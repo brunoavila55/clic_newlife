@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/clic_newlife/backend/internal/config"
@@ -195,6 +196,9 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 			con.Up = session.Up
 			con.Tempo = session.Tempo
 			con.NAS = session.NAS
+			con.IP = session.IP
+			con.DtHrParada = session.DtHrParada
+			con.DtHrRetorno = session.DtHrRetorno
 		}
 
 		conexoes = append(conexoes, con)
@@ -205,22 +209,29 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 
 // MKConexaoSession holds radius session data from WSMKConsultaConexaoAutenticada
 type MKConexaoSession struct {
-	Down  string
-	Up    string
-	Tempo string
-	NAS   string
+	Down        string
+	Up          string
+	Tempo       string
+	NAS         string
+	IP          string
+	DtHrParada  string
+	DtHrRetorno string
 }
 
 func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionToken string, codConexao int) *MKConexaoSession {
 	type MKAgendaItem struct {
-		Down     string `json:"down"`
-		Up       string `json:"up"`
-		Tempo    string `json:"tempo"`
-		Nas      string `json:"nas"`
-		Username string `json:"username"`
+		Down        string  `json:"down"`
+		Up          string  `json:"up"`
+		Tempo       string  `json:"tempo"`
+		Nas         string  `json:"nas"`
+		Username    string  `json:"username"`
+		FramedIP    string  `json:"framedip"`
+		DtHrParada  *string `json:"dt_hr_parada"`
+		DtHrRetorno *string `json:"dt_hr_retorno"`
 	}
 	type MKSessionResponse struct {
 		Agendas []MKAgendaItem `json:"Agendas"`
+		Conexao *MKAgendaItem  `json:"conexao"`
 		Status  string         `json:"status"`
 	}
 
@@ -243,16 +254,35 @@ func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionT
 	}
 
 	var sesResp MKSessionResponse
-	if err := json.Unmarshal(body, &sesResp); err != nil || len(sesResp.Agendas) == 0 {
+	if err := json.Unmarshal(body, &sesResp); err != nil {
 		return nil
 	}
 
-	a := sesResp.Agendas[0]
+	var a MKAgendaItem
+	if sesResp.Conexao != nil {
+		a = *sesResp.Conexao
+	} else if len(sesResp.Agendas) > 0 {
+		a = sesResp.Agendas[0]
+	} else {
+		return nil
+	}
+
+	var parada, retorno string
+	if a.DtHrParada != nil {
+		parada = *a.DtHrParada
+	}
+	if a.DtHrRetorno != nil {
+		retorno = *a.DtHrRetorno
+	}
+
 	return &MKConexaoSession{
-		Down:  a.Down,
-		Up:    a.Up,
-		Tempo: a.Tempo,
-		NAS:   a.Nas,
+		Down:        a.Down,
+		Up:          a.Up,
+		Tempo:       a.Tempo,
+		NAS:         a.Nas,
+		IP:          a.FramedIP,
+		DtHrParada:  parada,
+		DtHrRetorno: retorno,
 	}
 }
 
@@ -308,6 +338,17 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 				status = "OPEN"
 			}
 
+			// Fetch OS Agendamento for each ticket
+			osInfo := s.fetchOSAgendamento(ctx, sessionToken, internalID, a.DataAbertura)
+			osStatus := "Sem O.S."
+			osTecnico := ""
+			osData := ""
+			if osInfo != nil {
+				osStatus = osInfo.OSStatus
+				osTecnico = osInfo.OSTecnico
+				osData = osInfo.OSData
+			}
+
 			subject := a.DescricaoStatus
 			if a.NomeAtendente != "" {
 				subject += " (" + a.NomeAtendente + ")"
@@ -319,6 +360,9 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 				Status:    status,
 				Subject:   subject,
 				CreatedAt: t,
+				OSStatus:  osStatus,
+				OSTecnico: osTecnico,
+				OSData:    osData,
 			})
 		}
 	}
@@ -335,11 +379,129 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 	return atendimentos, nil
 }
 
+type MKOSAgendamento struct {
+	OSStatus  string
+	OSTecnico string
+	OSData    string
+}
+
+func (s *MKIntegrationService) fetchOSAgendamento(ctx context.Context, sessionToken string, internalID string, dataAbertura string) *MKOSAgendamento {
+	type MKOSItem struct {
+		Cliente         string `json:"Cliente"`
+		Data            string `json:"Data"`
+		DataAgendamento string `json:"Data_agendamento"`
+		DescricaoOS     string `json:"Descricao_os"`
+		Protocolo       string `json:"Protocolo"`
+		Tecnico         string `json:"Técnico"`
+		Bairro          string `json:"bairro"`
+		Cep             string `json:"cep"`
+		CodCliente      int    `json:"codCliente"`
+		CodContrato     *int   `json:"codcontrato"`
+		CodOS           int    `json:"codos"`
+		CodPessoa       int    `json:"codpessoa"`
+		Logradouro      string `json:"logradouro"`
+		SiglaEstado     string `json:"siglaestado"`
+		Status          int    `json:"status"`
+	}
+
+	type MKOSResponse struct {
+		Agendas []MKOSItem `json:"Agendas:"`
+		Status  string     `json:"status"`
+	}
+
+	// dataAbertura is in format YYYY-MM-DD. Convert to DD/MM/AAAA.
+	tData, err := time.Parse("2006-01-02", dataAbertura)
+	formattedDate := dataAbertura
+	if err == nil {
+		formattedDate = tData.Format("02/01/2006")
+	}
+
+	url := fmt.Sprintf("%s/mk/WSMKConsultaOrdemAgendamento.rule?sys=MK0&token=%s&cliente=%s&DataAbertura=%s", 
+		s.cfg.MKApiURL, sessionToken, internalID, formattedDate)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil
+	}
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	var osResp MKOSResponse
+	if err := json.Unmarshal(body, &osResp); err != nil {
+		return nil
+	}
+
+	if len(osResp.Agendas) == 0 {
+		return &MKOSAgendamento{
+			OSStatus: "Sem O.S.",
+		}
+	}
+
+	a := osResp.Agendas[0]
+	status := "Não Agendada"
+	if a.DataAgendamento != "" {
+		status = "Agendada"
+	}
+
+	return &MKOSAgendamento{
+		OSStatus:  status,
+		OSTecnico: a.Tecnico,
+		OSData:    a.DataAgendamento,
+	}
+}
+
 func (s *MKIntegrationService) FetchFaturas(ctx context.Context, sessionToken string, internalID string) ([]domain.Fatura, error) {
-	time.Sleep(600 * time.Millisecond)
-	return []domain.Fatura{
-		{ID: "F1", Amount: 150.00, DueDate: time.Now().AddDate(0, -1, 0), Status: "PAID", Barcode: "34191.09008 63571.277308"},
-	}, nil
+	type MKFaturaItem struct {
+		CdFatura int     `json:"cd_fatura"`
+		Nome     string  `json:"nome"`
+		Valor    float64 `json:"valor"`
+	}
+	type MKFaturasResponse struct {
+		ListaFaturas []MKFaturaItem `json:"ListaFaturas"`
+		Status       string         `json:"status"`
+	}
+
+	httpClient := &http.Client{Timeout: 15 * time.Second}
+	var faturas []domain.Fatura
+
+	// Fetch ONLY OVERDUE invoices (from 01/01/2020 up to Yesterday)
+	yesterdayStr := time.Now().AddDate(0, 0, -1).Format("02/01/2006")
+	urlOverdue := fmt.Sprintf("%s/mk/WSMKFaturasAbertas.rule?sys=MK0&token=%s&dt_venc_inicio=%s&dt_venc_fim=%s&cd_pessoa=%s", 
+		s.cfg.MKApiURL, sessionToken, "01/01/2020", yesterdayStr, internalID)
+
+	reqOverdue, err := http.NewRequestWithContext(ctx, http.MethodGet, urlOverdue, nil)
+	if err == nil {
+		resp, err := httpClient.Do(reqOverdue)
+		if err == nil {
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err == nil {
+				var mkRes MKFaturasResponse
+				if err := json.Unmarshal(body, &mkRes); err == nil {
+					for _, item := range mkRes.ListaFaturas {
+						faturas = append(faturas, domain.Fatura{
+							ID:      fmt.Sprintf("%d", item.CdFatura),
+							Amount:  item.Valor,
+							DueDate: "Vencida",
+							Status:  "OVERDUE",
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return faturas, nil
 }
 
 func (s *MKIntegrationService) FetchFinanceiro(ctx context.Context, sessionToken string, internalID string) (*domain.Financeiro, error) {
@@ -352,4 +514,85 @@ func (s *MKIntegrationService) FetchContratos(ctx context.Context, sessionToken 
 	return []domain.Contrato{
 		{ID: "C1", PlanName: "Plano Ouro Fibra", Status: "ACTIVE", StartDate: time.Now().AddDate(-1, 0, 0)},
 	}, nil
+}
+
+func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionToken string, internalID string) ([]domain.Equipamento, error) {
+	type MKStockItem struct {
+		CodSetor       int     `json:"CodSetor"`
+		Cod            int     `json:"cod"`
+		ControleSerial string  `json:"controle_serial"`
+		CustoTotal     float64 `json:"custo_total"`
+		CustoUn        float64 `json:"custo_un"`
+		Descricao      string  `json:"descricao"`
+		DescricaoSetor string  `json:"descricao_setor"`
+		EstoqueAtual   float64 `json:"estoque_atual"`
+		Ordem          string  `json:"ordem"`
+		VendaTotal     float64 `json:"venda_total"`
+		VendaUn        float64 `json:"venda_un"`
+	}
+
+	type MKStockResponse struct {
+		Codigos []MKStockItem `json:"Códigos:"`
+		Codigo  []MKStockItem `json:"Código:"`
+		Status  string        `json:"status"`
+	}
+
+	// Call the new active API WSMKConsultaProdutoEstoque.rule
+	url := fmt.Sprintf("%s/mk/WSMKConsultaProdutoEstoque.rule?sys=MK0&Token=%s&cd_setor=%s", s.cfg.MKApiURL, sessionToken, internalID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var mkRes MKStockResponse
+	if err := json.Unmarshal(body, &mkRes); err != nil {
+		fmt.Printf("DEBUG: Error unmarshaling inventory response: %v. Body: %s\n", err, string(body))
+		return nil, err
+	}
+
+	// Retrieve items from either list (dynamic key name support)
+	items := mkRes.Codigos
+	if len(items) == 0 {
+		items = mkRes.Codigo
+	}
+
+	var equip []domain.Equipamento
+	for _, item := range items {
+		// Filter by description containing "roteador" or "ont" (case-insensitive)
+		descLower := strings.ToLower(item.Descricao)
+		if !strings.Contains(descLower, "roteador") && !strings.Contains(descLower, "ont") {
+			continue
+		}
+
+		// Map serial label
+		serialStr := "Sem Serial"
+		if item.ControleSerial == "S" {
+			serialStr = "Com Serial"
+		} else if item.ControleSerial != "" && item.ControleSerial != "N" {
+			serialStr = item.ControleSerial
+		}
+
+		equip = append(equip, domain.Equipamento{
+			Codigo:           item.Cod,
+			DescricaoProduto: item.Descricao,
+			Status:           fmt.Sprintf("Qtd: %.0f", item.EstoqueAtual),
+			Tipo:             item.DescricaoSetor,
+			InSerial:         serialStr,
+		})
+	}
+
+	return equip, nil
 }

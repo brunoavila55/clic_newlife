@@ -1,0 +1,47 @@
+# Environment variables (NEVER commit these - contains API tokens and secrets)
+backend/.env
+
+# SQLite database (contains user data)
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Go binaries
+backend/api-bin
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binaries
+*.test
+*.out
+
+# Go build cache
+backend/tmp/
+
+# Vendor directory (if using go mod vendor)
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V7
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js (if frontend is added)
+node_modules/
+.next/
+npm-debug.log*

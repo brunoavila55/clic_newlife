@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/clic_newlife/backend/internal/config"
@@ -12,7 +13,7 @@ import (
 )
 
 type LoginRequest struct {
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -24,7 +25,7 @@ func Login(cfg *config.Config) fiber.Handler {
 		}
 
 		var user domain.User
-		if err := repository.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		if err := repository.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
 		}
 
@@ -34,8 +35,9 @@ func Login(cfg *config.Config) fiber.Handler {
 
 		// Create JWT token
 		claims := jwt.MapClaims{
-			"sub": user.ID,
-			"exp": time.Now().Add(time.Hour * 72).Unix(),
+			"sub":  fmt.Sprintf("%d", user.ID),
+			"role": user.Role,
+			"exp":  time.Now().Add(time.Hour * 72).Unix(),
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		t, err := token.SignedString([]byte(cfg.JWTSecret))
@@ -46,9 +48,10 @@ func Login(cfg *config.Config) fiber.Handler {
 		return c.JSON(fiber.Map{
 			"token": t,
 			"user": fiber.Map{
-				"id":    user.ID,
-				"email": user.Email,
-				"name":  user.Name,
+				"id":       user.ID,
+				"username": user.Username,
+				"name":     user.Name,
+				"role":     user.Role,
 			},
 		})
 	}

@@ -44,8 +44,24 @@ func main() {
 
 	// UI Routes
 	uiHandler := handler.NewUIHandler(fetchClientDataUC)
-	app.Get("/", uiHandler.RenderIndex)
-	app.Post("/search", uiHandler.HandleSearch)
+	
+	// Public UI Routes
+	app.Get("/login", uiHandler.RenderLogin)
+	app.Post("/login", uiHandler.HandleLogin(cfg))
+	app.Get("/logout", uiHandler.HandleLogout)
+
+	// Protected UI Routes
+	authMid := handler.AuthRequired(cfg)
+	app.Get("/", authMid, uiHandler.RenderIndex)
+	app.Post("/search", authMid, uiHandler.HandleSearch)
+	app.Get("/admin/setup-password", authMid, uiHandler.RenderSetupPassword)
+	app.Post("/admin/setup-password", authMid, uiHandler.HandleSetupPassword)
+
+	// Admin User Panel UI Routes
+	adminMid := handler.AdminRequired()
+	app.Get("/admin/users", authMid, adminMid, uiHandler.RenderUsers)
+	app.Post("/admin/users/create", authMid, adminMid, uiHandler.HandleCreateUser)
+	app.Delete("/admin/users/delete/:id", authMid, adminMid, uiHandler.HandleDeleteUser)
 
 	// Routes
 	api := app.Group("/api")

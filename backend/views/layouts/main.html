@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full antialiased dark">
+<html lang="pt-BR" class="h-full antialiased">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClicData 360 — Visão Completa do Cliente</title>
+    <title>CLIC — Centro de Logs, Informações e Conexões | New Life</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,15 +14,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
-                        background: '#08090e',
-                        foreground: '#f0f2f8',
+                        brandPrimary: '#0F4C81',
+                        brandSecondary: '#00B4D8',
+                        brandSuccess: '#22C55E',
+                        darkGray: '#1F2937',
+                        lightGray: '#F3F4F6',
+                        white: '#FFFFFF',
                     }
                 }
             }
@@ -34,28 +37,33 @@
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
+ 
     <!-- Custom CSS -->
     <style>
         body {
-            background-color: var(--background, #08090e);
-            color: var(--foreground, #f0f2f8);
+            background-color: #F3F4F6;
+            color: #1F2937;
         }
-
+ 
         .gradient-text {
-            background: linear-gradient(to right, #60a5fa, #34d399);
+            background: linear-gradient(135deg, #0F4C81, #00B4D8);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-
+ 
         .glass-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: #FFFFFF;
+            border: 1px solid rgba(31, 41, 55, 0.06);
             border-radius: 1.5rem;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+            border-color: rgba(15, 76, 129, 0.15);
+        }
+ 
         .slide-up {
             animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
@@ -64,7 +72,7 @@
             0% { opacity: 0; transform: translateY(20px); }
             100% { opacity: 1; transform: translateY(0); }
         }
-
+ 
         .htmx-indicator {
             display: none;
         }
@@ -74,62 +82,107 @@
         .htmx-request.htmx-indicator {
             display: inline-block;
         }
+
+        body:has(#hero-search) .navbar-search {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="min-h-full flex flex-col">
     <!-- Background ambient -->
     <div class="fixed inset-0 pointer-events-none overflow-hidden z-[-1]">
-        <div class="absolute top-[-20%] left-[10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px]"></div>
-        <div class="absolute top-[40%] right-[-5%] w-[400px] h-[400px] bg-violet-600/8 rounded-full blur-[100px]"></div>
-        <div class="absolute bottom-[-10%] left-[30%] w-[500px] h-[500px] bg-cyan-600/6 rounded-full blur-[120px]"></div>
+        <div class="absolute top-[-20%] left-[10%] w-[600px] h-[600px] bg-[#00B4D8]/5 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] left-[30%] w-[500px] h-[500px] bg-[#0F4C81]/5 rounded-full blur-[120px]"></div>
     </div>
-
+ 
     <!-- Header -->
-    <header class="relative z-40 border-b border-white/[0.06]" style="background: rgba(8,9,14,0.85); backdrop-filter: blur(24px)">
+    <header class="relative z-40 bg-[#1F2937] text-white shadow-md border-b border-gray-800">
         <div class="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30"
-                    style="background: linear-gradient(135deg, #4f6ef7, #06b6d4)">
+            <a href="/" class="flex items-center gap-3 hover:opacity-95 transition-opacity">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-black/20 flex-shrink-0"
+                    style="background: linear-gradient(135deg, #0F4C81, #00B4D8)">
                     <i data-lucide="zap" class="text-white w-[18px] h-[18px]"></i>
                 </div>
-                <div>
-                    <span class="font-black text-lg tracking-tight gradient-text">ClicData</span>
-                    <span class="font-black text-lg tracking-tight text-white/90"> 360</span>
+                <div class="flex flex-col justify-center">
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-lg tracking-tight bg-gradient-to-r from-blue-300 to-cyan-200 bg-clip-text text-transparent leading-none">CLIC</span>
+                        <div class="h-3.5 w-[1px] bg-gray-700"></div>
+                        <span class="text-xs font-black text-white/80 tracking-wider uppercase leading-none">New Life</span>
+                    </div>
+                    <span class="text-[9px] font-bold text-white/40 tracking-wider uppercase leading-none mt-1 hidden sm:block">Centro de Logs, Informações e Conexões</span>
                 </div>
-            </div>
-
-            <!-- Compact Search Form (Only visible when searching inside dashboard via HTMX out of band, or here globally) -->
-            <form hx-post="/search" hx-target="#dashboard-content" hx-indicator="#global-spinner" class="hidden md:flex items-center relative w-80 group">
-                <i data-lucide="search" class="absolute left-4 text-white/30 group-focus-within:text-blue-400 transition-colors w-[15px] h-[15px]"></i>
+            </a>
+            <!-- Compact Search Form -->
+            {{if .CurrentUser}}
+            <form hx-post="/search" hx-target="#dashboard-content" hx-indicator="#global-spinner" class="navbar-search hidden md:flex items-center relative w-80 group">
+                <i data-lucide="search" class="absolute left-4 text-white/40 group-focus-within:text-[#00B4D8] transition-colors w-[15px] h-[15px]"></i>
                 <input
                     type="text"
                     name="cpf"
                     placeholder="Novo CPF/CNPJ..."
                     required
-                    class="w-full pl-10 pr-24 py-2.5 text-sm rounded-xl border border-white/10 bg-white/5 text-white placeholder-white/25 focus:outline-none focus:border-blue-500/60 focus:bg-white/[0.07] transition-all"
+                    class="w-full pl-10 pr-24 py-2.5 text-sm rounded-xl border border-gray-700 bg-gray-800/60 text-white placeholder-white/30 focus:outline-none focus:border-[#00B4D8] focus:bg-gray-800 transition-all"
                 />
                 <button type="submit"
                     class="absolute right-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 flex items-center gap-1"
-                    style="background: linear-gradient(135deg, #4f6ef7, #06b6d4)">
+                    style="background: linear-gradient(135deg, #0F4C81, #00B4D8)">
                     <i data-lucide="loader-2" class="htmx-indicator animate-spin w-[13px] h-[13px]" id="global-spinner"></i>
                     <span class="group-[.htmx-request]:hidden">Buscar</span>
                 </button>
             </form>
+            {{end}}
 
-            <div class="flex items-center gap-2">
-                <span class="relative flex h-2.5 w-2.5">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                </span>
-                <span class="text-white/40 text-xs font-semibold uppercase tracking-widest hidden sm:block">Online</span>
+            {{if .CurrentUser}}
+            <div class="flex items-center gap-4">
+                <!-- User tag -->
+                <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700/50 rounded-xl select-none">
+                    <div class="w-6 h-6 rounded-lg bg-[#00B4D8]/15 flex items-center justify-center font-bold text-xs text-[#00B4D8] uppercase">
+                        {{ slice .CurrentUser.Name 0 1 }}
+                    </div>
+                    <span class="text-xs font-semibold text-white/80">{{.CurrentUser.Name}}</span>
+                </div>
+
+                <!-- Admin Link -->
+                {{if eq .CurrentUser.Role "admin"}}
+                <a href="/admin/users"
+                    class="text-gray-400 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Gerenciar Contas">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-[#00B4D8]"></i>
+                    <span class="hidden md:inline">Usuários</span>
+                </a>
+                {{end}}
+
+                <!-- Logout Link -->
+                <a href="/logout"
+                    class="text-gray-400 hover:text-red-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Encerrar Sessão">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Sair</span>
+                </a>
+
+                <div class="h-4 w-[1px] bg-gray-700 hidden sm:block mx-0.5"></div>
+
+                <!-- Status indicator -->
+                <div class="flex items-center gap-2">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                    </span>
+                    <span class="text-white/60 text-xs font-semibold uppercase tracking-widest hidden sm:block">Online</span>
+                </div>
             </div>
+            {{else}}
+            <div class="flex items-center gap-2">
+                <span class="text-white/40 text-xs font-semibold uppercase tracking-widest select-none">Acesso Restrito</span>
+            </div>
+            {{end}}
         </div>
     </header>
-
+ 
     <main class="relative z-10 max-w-[1600px] mx-auto px-6 pb-16 w-full flex-1">
         {{embed}}
     </main>
-
+ 
     <script>
         // Initialize lucide icons on load and after htmx swap
         lucide.createIcons();

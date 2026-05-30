@@ -1,0 +1,147 @@
+<div id="users-admin-content" class="w-full py-6 slide-up">
+    <!-- Top row -->
+    <div class="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div>
+            <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-0.5">Operações</p>
+            <h2 class="text-[#1F2937] font-black text-2xl tracking-tight flex items-center gap-2">
+                <i data-lucide="users" class="w-6 h-6 text-[#0F4C81]"></i> Gerenciamento de Usuários
+            </h2>
+        </div>
+        <a href="/"
+            class="px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 flex items-center gap-2 transition-all cursor-pointer">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar ao Painel
+        </a>
+    </div>
+
+    <!-- 2-col content grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Col 1: Users list -->
+        <div class="lg:col-span-8 space-y-4">
+            <div class="glass-card p-6">
+                <div class="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
+                    <h3 class="font-bold text-base text-gray-800 tracking-tight flex items-center gap-2">
+                        <i data-lucide="list" class="w-[15px] h-[15px] text-[#00B4D8]"></i> Contas Cadastradas
+                    </h3>
+                    <span class="px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-500">{{len .Users}} usuários</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-650">
+                        <thead>
+                            <tr class="text-gray-400 text-[10px] uppercase tracking-widest border-b border-gray-100">
+                                <th class="py-3 font-bold">Nome</th>
+                                <th class="py-3 font-bold">Usuário</th>
+                                <th class="py-3 font-bold text-center">Função</th>
+                                <th class="py-3 font-bold text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {{range .Users}}
+                            <tr class="hover:bg-gray-50/50 transition-colors">
+                                <td class="py-4 font-semibold text-gray-800">{{.Name}}</td>
+                                <td class="py-4 font-mono text-gray-600">@{{.Username}}</td>
+                                <td class="py-4 text-center">
+                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border {{if eq .Role "admin"}}bg-blue-50 text-blue-700 border-blue-200{{else}}bg-gray-100 text-gray-500 border-gray-200{{end}}">
+                                        {{if eq .Role "admin"}}Administrador{{else}}Comum{{end}}
+                                    </span>
+                                </td>
+                                <td class="py-4 text-right">
+                                    {{if ne .Username "admin"}}
+                                    <button
+                                        hx-delete="/admin/users/delete/{{.ID}}"
+                                        hx-confirm="Excluir o usuário @{{.Username}} permanentemente?"
+                                        hx-target="#users-admin-content"
+                                        class="p-2 text-red-500 hover:text-red-705 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                                        title="Excluir Usuário"
+                                    >
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                    {{else}}
+                                    <span class="text-xs text-gray-400 font-semibold pr-2">Sistema</span>
+                                    {{end}}
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 2: Create new user -->
+        <div class="lg:col-span-4">
+            <div class="glass-card p-6 sticky top-6">
+                <div class="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                    <div class="p-2 rounded-xl bg-gray-50 border border-gray-150 shadow-sm">
+                        <i data-lucide="user-plus" class="w-[15px] h-[15px] text-[#0F4C81]"></i>
+                    </div>
+                    <h3 class="font-bold text-base text-gray-800 tracking-tight">Nova Conta</h3>
+                </div>
+
+                <!-- Create Form -->
+                <form hx-post="/admin/users/create" hx-target="#users-admin-content" class="space-y-4">
+                    <div>
+                        <label for="name" class="text-gray-500 text-[10px] font-bold uppercase tracking-widest block mb-2">Nome Completo</label>
+                        <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            placeholder="ex: João Silva"
+                            required
+                            class="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-gray-50/50 text-gray-800 focus:outline-none focus:border-[#0F4C81] focus:bg-white transition-all"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="new_username" class="text-gray-500 text-[10px] font-bold uppercase tracking-widest block mb-2">Usuário (Username)</label>
+                        <input
+                            type="text"
+                            id="new_username"
+                            name="username"
+                            placeholder="ex: joaosilva"
+                            required
+                            class="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-gray-50/50 text-gray-800 focus:outline-none focus:border-[#0F4C81] focus:bg-white transition-all"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="new_password" class="text-gray-500 text-[10px] font-bold uppercase tracking-widest block mb-2">Senha de Acesso</label>
+                        <input
+                            type="password"
+                            id="new_password"
+                            name="password"
+                            placeholder="ex: senha123"
+                            required
+                            class="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-gray-50/50 text-gray-800 focus:outline-none focus:border-[#0F4C81] focus:bg-white transition-all"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="role" class="text-gray-500 text-[10px] font-bold uppercase tracking-widest block mb-2">Função / Permissão</label>
+                        <select
+                            id="role"
+                            name="role"
+                            required
+                            class="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-gray-50/50 text-gray-800 focus:outline-none focus:border-[#0F4C81] focus:bg-white transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="user">Usuário Comum (Apenas Consultas)</option>
+                            <option value="admin">Administrador (Controle Total)</option>
+                        </select>
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="w-full py-3.5 rounded-xl font-bold text-white text-sm hover:opacity-95 active:scale-[0.99] transition-all shadow-md shadow-[#0F4C81]/10 mt-6 cursor-pointer"
+                        style="background: linear-gradient(135deg, #0F4C81 0%, #00B4D8 100%)"
+                    >
+                        Criar Usuário
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+</script>

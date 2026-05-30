@@ -41,15 +41,15 @@ func InitDB(cfg *config.Config) {
 	}
 	
 	// Create default admin user if none exists
-	var count int64
-	DB.Model(&domain.User{}).Count(&count)
-	if count == 0 {
+	var adminUser domain.User
+	if err := DB.Where("username = ?", "admin").First(&adminUser).Error; err != nil {
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
 		DB.Create(&domain.User{
-			Email:    "admin@admin.com",
+			Username: "admin",
 			Password: string(hashedPassword),
 			Name:     "Admin User",
+			Role:     "admin",
 		})
-		log.Println("Created default admin user (admin@admin.com / admin)")
+		log.Println("Created default admin user (admin / admin)")
 	}
 }

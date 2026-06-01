@@ -56,14 +56,6 @@ type Financeiro struct {
 	IsDefaulter bool    `json:"is_defaulter"`
 }
 
-// Contrato represents a client's contract
-type Contrato struct {
-	ID        string    `json:"id"`
-	PlanName  string    `json:"plan_name"`
-	Status    string    `json:"status"` // ACTIVE, CANCELLED
-	StartDate time.Time `json:"start_date"`
-}
-
 // Conexao represents a client's connection
 type Conexao struct {
 	CodConexao     int    `json:"codconexao"`
@@ -97,7 +89,6 @@ type ClientAggregatedData struct {
 	Atendimentos []Atendimento `json:"atendimentos"`
 	Faturas      []Fatura      `json:"faturas"`
 	Financeiro   Financeiro    `json:"financeiro"`
-	Contratos    []Contrato    `json:"contratos"`
 	Conexoes     []Conexao     `json:"conexoes"`
 	Equipamentos []Equipamento `json:"equipamentos"`
 }

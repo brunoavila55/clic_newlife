@@ -594,10 +594,7 @@ func (s *MKIntegrationService) FetchFinanceiro(ctx context.Context, sessionToken
 	return &domain.Financeiro{CreditScore: 0, TotalDebt: 0, IsDefaulter: false}, nil
 }
 
-// FetchContratos — integração pendente com MK Solutions.
-func (s *MKIntegrationService) FetchContratos(ctx context.Context, sessionToken string, internalID string) ([]domain.Contrato, error) {
-	return []domain.Contrato{}, nil
-}
+
 
 func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionToken string, internalID string) ([]domain.Equipamento, error) {
 	type MKStockItem struct {

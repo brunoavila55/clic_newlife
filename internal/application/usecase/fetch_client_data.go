@@ -72,7 +72,7 @@ func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*dom
 		Client: *client,
 	}
 
-	wg.Add(6)
+	wg.Add(5)
 
 	go func() {
 		defer wg.Done()
@@ -111,13 +111,7 @@ func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*dom
 		}
 	}()
 
-	go func() {
-		defer wg.Done()
-		contratos, _ := uc.mkService.FetchContratos(ctx, sessionToken, client.InternalID)
-		mu.Lock()
-		aggregated.Contratos = contratos
-		mu.Unlock()
-	}()
+
 
 	go func() {
 		defer wg.Done()

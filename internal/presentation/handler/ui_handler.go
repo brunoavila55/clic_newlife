@@ -36,7 +36,6 @@ type TemplateData struct {
 	Error             string
 	Client            interface{}
 	Conexoes          interface{}
-	Contratos         interface{}
 	Faturas           interface{}
 	Atendimentos      interface{}
 	Financeiro        interface{}
@@ -83,7 +82,6 @@ func (h *UIHandler) HandleSearch(c *fiber.Ctx) error {
 
 	tmplData.Client = data.Client
 	tmplData.Conexoes = data.Conexoes
-	tmplData.Contratos = data.Contratos
 	tmplData.Faturas = data.Faturas
 	tmplData.Atendimentos = data.Atendimentos
 	tmplData.Financeiro = data.Financeiro

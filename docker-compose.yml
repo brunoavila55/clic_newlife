@@ -3,13 +3,13 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     container_name: clic_backend
     ports:
       - "8080:8080"
     env_file:
-      - ./backend/.env
+      - ./.env
     restart: unless-stopped
     volumes:
       # Persiste o banco SQLite entre reinicializações do container

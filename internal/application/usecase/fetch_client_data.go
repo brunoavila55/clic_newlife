@@ -10,17 +10,32 @@ import (
 	"github.com/clic_newlife/backend/internal/infrastructure/integration"
 )
 
+type cacheEntry struct {
+	data      *domain.ClientAggregatedData
+	expiresAt time.Time
+}
+
 type FetchClientDataUseCase struct {
 	mkService *integration.MKIntegrationService
+	cacheMu   sync.RWMutex
+	cache     map[string]cacheEntry
 }
 
 func NewFetchClientDataUseCase(mkService *integration.MKIntegrationService) *FetchClientDataUseCase {
 	return &FetchClientDataUseCase{
 		mkService: mkService,
+		cache:     make(map[string]cacheEntry),
 	}
 }
 
 func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*domain.ClientAggregatedData, error) {
+	// Verifica cache
+	uc.cacheMu.RLock()
+	if entry, ok := uc.cache[cpf]; ok && time.Now().Before(entry.expiresAt) {
+		uc.cacheMu.RUnlock()
+		return entry.data, nil
+	}
+	uc.cacheMu.RUnlock()
 	// 1. Obtém token de sessão (reutiliza do cache se disponível)
 	sessionToken, err := uc.mkService.Authenticate(ctx)
 	if err != nil {
@@ -112,6 +127,14 @@ func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*dom
 	case <-time.After(12 * time.Second):
 		fmt.Println("Warning: timeout atingido aguardando APIs MK Solutions")
 	}
+
+	// Atualiza o cache (TTL 5 min)
+	uc.cacheMu.Lock()
+	uc.cache[cpf] = cacheEntry{
+		data:      aggregated,
+		expiresAt: time.Now().Add(5 * time.Minute),
+	}
+	uc.cacheMu.Unlock()
 
 	return aggregated, nil
 }

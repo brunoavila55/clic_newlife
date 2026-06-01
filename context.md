@@ -8,8 +8,8 @@ Este arquivo serve como um guia completo de arquitetura, integrações de APIs e
 
 O **Clic NewLife** é um dashboard de monitoramento e centralização de dados de clientes integrado com os webservices da **MK Solutions ERP**.
 * **Arquitetura**: Aplicação Go (Golang) monolítica utilizando o framework **Fiber** para rotas e renderização nativa de templates.
-* **Banco de Dados**: SQLite local (`backend/data/clic.db`) gerenciado via GORM, utilizado estritamente para controle de autenticação interna da plataforma.
-* **Frontend**: Templates HTML renderizados no servidor em `backend/views`, enriquecidos dinamicamente com **TailwindCSS** (design escuro e glassmorphism premium) e interações parciais assíncronas com **HTMX**.
+* **Banco de Dados**: SQLite local (`data/clic.db`) gerenciado via GORM, utilizado estritamente para controle de autenticação interna da plataforma.
+* **Frontend**: Templates HTML renderizados no servidor em `views`, enriquecidos dinamicamente com **TailwindCSS** (design escuro e glassmorphism premium) e interações parciais assíncronas com **HTMX**.
 
 ---
 
@@ -17,7 +17,7 @@ O **Clic NewLife** é um dashboard de monitoramento e centralização de dados d
 
 * **Pré-requisitos**: Go v1.26+ instalado localmente.
 * **Passos para execução**:
-  1. Acesse o diretório `backend` (onde está o `go.mod` e o `.env`).
+  1. Acesse o diretório raiz (onde está o `go.mod` e o `.env`).
   2. Execute:
      ```powershell
      go run cmd/api/main.go
@@ -31,7 +31,7 @@ O **Clic NewLife** é um dashboard de monitoramento e centralização de dados d
 
 ## 3. Mapeamento das Integrações de APIs (MK Solutions)
 
-Toda a lógica de integração com as APIs da MK está localizada no arquivo [client_api.go](file:///c:/clic_newlife/backend/internal/infrastructure/integration/client_api.go).
+Toda a lógica de integração com as APIs da MK está localizada no arquivo [client_api.go](file:///c:/clic_newlife/internal/infrastructure/integration/client_api.go).
 
 ### A. Autenticação Principal (`WSAutenticacao.rule`)
 * **Endpoint**: `/mk/WSAutenticacao.rule?sys=MK0&token={MK_AUTH_TOKEN}&cd_servico=9999`
@@ -98,15 +98,15 @@ O monitor foi totalmente remodelado e suporta cenários onde o cliente possui ma
 
 ## 4. Arquivos-Chave do Projeto
 
-1. **[models.go](file:///c:/clic_newlife/backend/internal/domain/models.go)**:
+1. **[models.go](file:///c:/clic_newlife/internal/domain/models.go)**:
    Contém as structs de domínio, incluindo `Conexao`, `Atendimento` e a nova struct `Equipamento` (com mapeamento de serial e descrição), vinculada ao `ClientAggregatedData`.
-2. **[client_api.go](file:///c:/clic_newlife/backend/internal/infrastructure/integration/client_api.go)**:
+2. **[client_api.go](file:///c:/clic_newlife/internal/infrastructure/integration/client_api.go)**:
    Gerencia todas as requisições HTTP da API da MK. Adicionado o método `FetchEquipamentos` para consultar o inventário e aplicar os filtros de status e modelo de roteadores/ONTs.
-3. **[dashboard.html](file:///c:/clic_newlife/backend/views/dashboard.html)**:
+3. **[dashboard.html](file:///c:/clic_newlife/views/dashboard.html)**:
    Template principal do painel. Reorganizado o layout da coluna 2 (`lg:col-span-5` com `space-y-4`) para acomodar o card do "Monitor de Conexões" e, logo abaixo, o novo card dedicado ao "Inventário de Equipamentos do Cliente" (exibindo número de série, modo/tipo em comodato e modelo destacado).
-4. **[ui_handler.go](file:///c:/clic_newlife/backend/internal/presentation/handler/ui_handler.go)**:
+4. **[ui_handler.go](file:///c:/clic_newlife/internal/presentation/handler/ui_handler.go)**:
    Controlador que mapeia e injeta o array `Equipamentos` no template de visualização do dashboard.
-5. **[fetch_client_data.go](file:///c:/clic_newlife/backend/internal/application/usecase/fetch_client_data.go)**:
+5. **[fetch_client_data.go](file:///c:/clic_newlife/internal/application/usecase/fetch_client_data.go)**:
    Atualizado para incluir a busca concorrente de equipamentos no inventário do cliente em paralelo com as outras 5 requisições principais do sistema (subindo o contador `sync.WaitGroup` para 6).
 
 ---

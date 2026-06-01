@@ -31,19 +31,18 @@ O **Clic NewLife** é uma aplicação web monolítica em Go que consolida inform
 
 ```
 clic_newlife/
-├── backend/
-│   ├── cmd/api/main.go          # Ponto de entrada da aplicação
-│   ├── internal/
-│   │   ├── application/         # Casos de uso (orquestração)
-│   │   ├── config/              # Leitura de variáveis de ambiente
-│   │   ├── domain/              # Modelos de domínio (structs)
-│   │   ├── infrastructure/      # Banco de dados e integrações externas
-│   │   └── presentation/        # Handlers HTTP e middlewares
-│   ├── views/                   # Templates HTML (SSR)
-│   │   └── layouts/main.html    # Layout base com navbar
-│   ├── data/                    # Banco SQLite (gerado automaticamente)
-│   ├── .env.example             # Exemplo de variáveis de ambiente
-│   └── Dockerfile
+├── cmd/api/main.go          # Ponto de entrada da aplicação
+├── internal/
+│   ├── application/         # Casos de uso (orquestração)
+│   ├── config/              # Leitura de variáveis de ambiente
+│   ├── domain/              # Modelos de domínio (structs)
+│   ├── infrastructure/      # Banco de dados e integrações externas
+│   └── presentation/        # Handlers HTTP e middlewares
+├── views/                   # Templates HTML (SSR)
+│   └── layouts/main.html    # Layout base com navbar
+├── data/                    # Banco SQLite (gerado automaticamente)
+├── .env.example             # Exemplo de variáveis de ambiente
+├── Dockerfile
 ├── docker-compose.yml
 ├── run_native.ps1               # Script de execução nativa (Windows)
 └── README.md
@@ -74,11 +73,10 @@ cd clic_newlife
 ### 2. Configure as variáveis de ambiente
 
 ```bash
-cd backend
 cp .env.example .env
 ```
 
-Abra o arquivo `backend/.env` e preencha com suas credenciais:
+Abra o arquivo `.env` e preencha com suas credenciais:
 
 ```env
 PORT=8080
@@ -101,7 +99,7 @@ MK_AUTH_PASSWORD=sua-senha-mk-aqui
 ### 3. Baixe as dependências e execute
 
 ```bash
-# Dentro da pasta backend/
+# Na raiz do projeto
 go mod download
 go run cmd/api/main.go
 ```

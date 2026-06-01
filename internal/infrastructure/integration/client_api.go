@@ -186,8 +186,6 @@ type MKConexaoSession struct {
 	Tempo       string
 	NAS         string
 	IP          string
-	DtHrParada  string
-	DtHrRetorno string
 }
 
 // FetchConexoes busca as conexões do cliente e enriquece cada uma com dados de sessão
@@ -263,8 +261,6 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 			con.Tempo = sessions[i].Tempo
 			con.NAS = sessions[i].NAS
 			con.IP = sessions[i].IP
-			con.DtHrParada = sessions[i].DtHrParada
-			con.DtHrRetorno = sessions[i].DtHrRetorno
 		}
 
 		conexoes = append(conexoes, con)
@@ -281,8 +277,6 @@ func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionT
 		Nas         string  `json:"nas"`
 		Username    string  `json:"username"`
 		FramedIP    string  `json:"framedip"`
-		DtHrParada  *string `json:"dt_hr_parada"`
-		DtHrRetorno *string `json:"dt_hr_retorno"`
 	}
 	type MKSessionResponse struct {
 		Agendas []MKAgendaItem `json:"Agendas"`
@@ -321,13 +315,7 @@ func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionT
 		return nil
 	}
 
-	var parada, retorno string
-	if a.DtHrParada != nil {
-		parada = *a.DtHrParada
-	}
-	if a.DtHrRetorno != nil {
-		retorno = *a.DtHrRetorno
-	}
+
 
 	return &MKConexaoSession{
 		Down:        a.Down,
@@ -335,8 +323,6 @@ func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionT
 		Tempo:       a.Tempo,
 		NAS:         a.Nas,
 		IP:          a.FramedIP,
-		DtHrParada:  parada,
-		DtHrRetorno: retorno,
 	}
 }
 

@@ -70,8 +70,6 @@ type Conexao struct {
 	Tempo       string `json:"tempo,omitempty"`
 	NAS         string `json:"nas,omitempty"`
 	IP          string `json:"ip,omitempty"`
-	DtHrParada  string `json:"dt_hr_parada,omitempty"`
-	DtHrRetorno string `json:"dt_hr_retorno,omitempty"`
 }
 
 // Equipamento represents a client's inventory equipment (Router/ONT)

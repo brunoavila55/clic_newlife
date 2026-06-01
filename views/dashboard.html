@@ -236,28 +236,7 @@
                             {{end}}
                         </div>
 
-                        <!-- Disconnection History -->
-                        {{if or .DtHrParada .DtHrRetorno}}
-                        <div class="p-3 bg-gray-50/50 border border-gray-100 rounded-xl text-[10px]">
-                            <p class="text-gray-500 uppercase tracking-wider font-bold mb-2 flex items-center gap-1.5">
-                                <i data-lucide="history" class="w-3 h-3 text-gray-300"></i> Histórico de Conexão (Quedas)
-                            </p>
-                            <div class="flex flex-col gap-1.5 text-gray-650">
-                                {{if .DtHrParada}}
-                                <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-1 text-red-600"><i data-lucide="arrow-down-right" class="w-2.5 h-2.5"></i> Última Queda:</span>
-                                    <span class="font-mono text-red-650">{{.DtHrParada}}</span>
-                                </div>
-                                {{end}}
-                                {{if .DtHrRetorno}}
-                                <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-1 text-emerald-600"><i data-lucide="arrow-up-right" class="w-2.5 h-2.5"></i> Último Retorno:</span>
-                                    <span class="font-mono text-emerald-650">{{.DtHrRetorno}}</span>
-                                </div>
-                                {{end}}
-                            </div>
-                        </div>
-                        {{end}}
+
 
                     </div>
                     {{end}}

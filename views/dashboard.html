@@ -35,7 +35,7 @@
     </div>
 
     <!-- KPI Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
         <div class="glass-card p-5 relative overflow-hidden group slide-up" style="animation-delay: 50ms;">
             <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#00B4D8]/5 to-[#0F4C81]/5 blur-3xl"></div>
             <div class="relative z-10">
@@ -69,18 +69,6 @@
                 <p class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1">Faturas</p>
                 <p class="text-2xl font-black text-[#1F2937] leading-none">{{len .Faturas}}</p>
                 <p class="text-gray-400 text-xs mt-1.5">No sistema</p>
-            </div>
-        </div>
-
-        <div class="glass-card p-5 relative overflow-hidden group slide-up" style="animation-delay: 200ms;">
-            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#00B4D8]/5 to-[#0F4C81]/5 blur-3xl"></div>
-            <div class="relative z-10">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="p-2.5 rounded-xl bg-gray-50 border border-gray-150"><i data-lucide="message-square" class="w-[18px] h-[18px] text-[#0F4C81]"></i></div>
-                </div>
-                <p class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1">Atendimentos</p>
-                <p class="text-2xl font-black text-[#1F2937] leading-none">{{len .Atendimentos}}</p>
-                <p class="text-gray-400 text-xs mt-1.5">{{if gt .OpenAtendimentos 0}}{{.OpenAtendimentos}} em aberto{{else}}Nenhum aberto{{end}}</p>
             </div>
         </div>
     </div>
@@ -383,7 +371,7 @@
                         <div class="p-2 rounded-xl bg-gray-[#F3F4F6] border border-gray-200 shadow-sm">
                             <i data-lucide="message-square" class="w-[15px] h-[15px] text-[#0F4C81]"></i>
                         </div>
-                        <h3 class="font-bold text-base text-gray-800 tracking-tight">Atendimentos (30 dias)</h3>
+                        <h3 class="font-bold text-base text-gray-800 tracking-tight">Últimos Atendimentos</h3>
                     </div>
                     <span class="px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-500">{{len .Atendimentos}}</span>
                 </div>

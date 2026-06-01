@@ -356,8 +356,8 @@ type MKAtendimento struct {
 // FetchAtendimentos busca atendimentos filtrando por cliente no servidor (cd_cliente),
 // e busca os agendamentos de O.S. de todos os atendimentos em paralelo.
 func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionToken string, internalID string) ([]domain.Atendimento, error) {
-	// Apenas últimos 30 dias + filtro por cliente no servidor para reduzir payload
-	dataInicio := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	// Busca do último 1 ano para garantir histórico
+	dataInicio := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
 	dataTermino := time.Now().Format("2006-01-02")
 
 	url := fmt.Sprintf("%s/mk/WSMKAtendimentos.rule?sys=MK0&token=%s&cd_cliente=%s&data_inicio=%s&data_termino=%s",
@@ -423,6 +423,20 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 		return nil, nil
 	}
 
+	// Ordena pendentes por data decrescente
+	for i := 0; i < len(pending); i++ {
+		for j := i + 1; j < len(pending); j++ {
+			if pending[j].base.CreatedAt.After(pending[i].base.CreatedAt) {
+				pending[i], pending[j] = pending[j], pending[i]
+			}
+		}
+	}
+
+	// Limita aos 3 mais recentes ANTES de buscar as O.S (otimização)
+	if len(pending) > 3 {
+		pending = pending[:3]
+	}
+
 	// Busca agendamentos de O.S. em paralelo com controle de concorrência
 	results := make([]domain.Atendimento, len(pending))
 	var osWg sync.WaitGroup
@@ -448,15 +462,6 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 		}(i, p.base, p.dataAbertura)
 	}
 	osWg.Wait()
-
-	// Ordena por data decrescente
-	for i := 0; i < len(results); i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].CreatedAt.After(results[i].CreatedAt) {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
 
 	return results, nil
 }

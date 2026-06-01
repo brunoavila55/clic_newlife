@@ -22,10 +22,26 @@ type FetchClientDataUseCase struct {
 }
 
 func NewFetchClientDataUseCase(mkService *integration.MKIntegrationService) *FetchClientDataUseCase {
-	return &FetchClientDataUseCase{
+	uc := &FetchClientDataUseCase{
 		mkService: mkService,
 		cache:     make(map[string]cacheEntry),
 	}
+
+	// Inicia goroutine para limpar cache expirado a cada 5 minutos (Evita Memory Leak)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		for range ticker.C {
+			uc.cacheMu.Lock()
+			for cpf, entry := range uc.cache {
+				if time.Now().After(entry.expiresAt) {
+					delete(uc.cache, cpf)
+				}
+			}
+			uc.cacheMu.Unlock()
+		}
+	}()
+
+	return uc
 }
 
 func (uc *FetchClientDataUseCase) Execute(ctx context.Context, cpf string) (*domain.ClientAggregatedData, error) {

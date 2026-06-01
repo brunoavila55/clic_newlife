@@ -17,6 +17,9 @@ import (
 type MKIntegrationService struct {
 	cfg *config.Config
 
+	// httpClient otimizado para reaproveitar conexões TCP
+	httpClient *http.Client
+
 	// Token cache — evita uma autenticação por consulta
 	tokenMu     sync.Mutex
 	cachedToken string
@@ -24,7 +27,21 @@ type MKIntegrationService struct {
 }
 
 func NewMKIntegrationService(cfg *config.Config) *MKIntegrationService {
-	return &MKIntegrationService{cfg: cfg}
+	// Cria um transport focado em reaproveitamento (Pooling)
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConns = 100
+	t.MaxConnsPerHost = 100
+	t.MaxIdleConnsPerHost = 100
+
+	client := &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: t,
+	}
+
+	return &MKIntegrationService{
+		cfg:        cfg,
+		httpClient: client,
+	}
 }
 
 // Auth response
@@ -89,8 +106,7 @@ func (s *MKIntegrationService) Authenticate(ctx context.Context) (string, error)
 		return "", err
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -134,8 +150,7 @@ func (s *MKIntegrationService) FetchClientByCPF(ctx context.Context, sessionToke
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +201,7 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 		return nil, err
 	}
 
-	httpClient := &http.Client{Timeout: 15 * time.Second}
-	resp, err := httpClient.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -207,15 +221,18 @@ func (s *MKIntegrationService) FetchConexoes(ctx context.Context, sessionToken s
 		return nil, nil
 	}
 
-	// Busca sessões Radius em paralelo (antes era sequencial — 1 req por vez)
+	// Busca sessões Radius em paralelo com limite de chamadas
 	sessions := make([]*MKConexaoSession, len(mkRes.Conexoes))
 	var sesWg sync.WaitGroup
 	var sesMu sync.Mutex
+	sem := make(chan struct{}, 5) // Semáforo de 5 requisições
 
 	for i, c := range mkRes.Conexoes {
 		sesWg.Add(1)
 		go func(idx int, codConexao int) {
 			defer sesWg.Done()
+			sem <- struct{}{}        // Ocupa um slot
+			defer func() { <-sem }() // Libera o slot
 			session := s.fetchConexaoSession(ctx, sessionToken, codConexao)
 			sesMu.Lock()
 			sessions[idx] = session
@@ -279,8 +296,7 @@ func (s *MKIntegrationService) fetchConexaoSession(ctx context.Context, sessionT
 		return nil
 	}
 
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-	resp, err := httpClient.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil
 	}
@@ -352,8 +368,7 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -408,15 +423,18 @@ func (s *MKIntegrationService) FetchAtendimentos(ctx context.Context, sessionTok
 		return nil, nil
 	}
 
-	// Busca agendamentos de O.S. em paralelo (antes era sequencial — 1 req por atendimento)
+	// Busca agendamentos de O.S. em paralelo com controle de concorrência
 	results := make([]domain.Atendimento, len(pending))
 	var osWg sync.WaitGroup
 	var osMu sync.Mutex
+	sem := make(chan struct{}, 5)
 
 	for i, p := range pending {
 		osWg.Add(1)
 		go func(idx int, atd domain.Atendimento, dataAbertura string) {
 			defer osWg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			osInfo := s.fetchOSAgendamento(ctx, sessionToken, internalID, dataAbertura)
 			atd.OSStatus = "Sem O.S."
 			if osInfo != nil {
@@ -488,8 +506,7 @@ func (s *MKIntegrationService) fetchOSAgendamento(ctx context.Context, sessionTo
 		return nil
 	}
 
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-	resp, err := httpClient.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil
 	}
@@ -535,7 +552,6 @@ func (s *MKIntegrationService) FetchFaturas(ctx context.Context, sessionToken st
 		Status       string         `json:"status"`
 	}
 
-	httpClient := &http.Client{Timeout: 15 * time.Second}
 	var faturas []domain.Fatura
 
 	// Busca apenas faturas VENCIDAS (de 01/01/2020 até ontem)
@@ -545,7 +561,7 @@ func (s *MKIntegrationService) FetchFaturas(ctx context.Context, sessionToken st
 
 	reqOverdue, err := http.NewRequestWithContext(ctx, http.MethodGet, urlOverdue, nil)
 	if err == nil {
-		resp, err := httpClient.Do(reqOverdue)
+		resp, err := s.httpClient.Do(reqOverdue)
 		if err == nil {
 			defer resp.Body.Close()
 			body, err := io.ReadAll(resp.Body)
@@ -606,8 +622,7 @@ func (s *MKIntegrationService) FetchEquipamentos(ctx context.Context, sessionTok
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
